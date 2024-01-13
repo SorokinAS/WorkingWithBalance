@@ -93,7 +93,8 @@ func (db *DataBaseConnection) ReserveMoneyFromBalance(cash *Credition) ([]byte, 
 		}
 	}(err)
 	_, err = tx.Exec(context.Background(), "UPDATE users SET pennies=pennies+100, rubles=rubles-1 WHERE uuid=$1 AND pennies<$2 AND rubles>=1", cash.Uuid, cash.Pennies)
-	_, err = tx.Exec(context.Background(), "UPDATE users SET rubles=rubles-$1, pennies=pennies-$2 WHERE uuid=$3 AND rubles>=$1 AND pennies>=$2", cash.Rubles, cash.Pennies, cash.Uuid)
+	_, err = tx.Exec(context.Background(), "UPDATE users SET rubles=rubles-$1, pennies=pennies-$2, rubles_res=rubles_res+$1, pennies_res=pennies_res+$2 WHERE uuid=$3 AND rubles>=$1 AND pennies>=$2",
+		cash.Rubles, cash.Pennies, cash.Uuid)
 
 	if err == nil {
 		res, _ = json.Marshal(fmt.Sprintf("reserve balance %v was credited", *cash))
