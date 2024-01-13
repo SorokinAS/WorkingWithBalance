@@ -86,7 +86,7 @@ func (db *DataBaseConnection) ReserveMoneyFromBalance(cash *Credition) ([]byte, 
 		return nil, err
 	}
 	defer func(cause error) {
-		if err != nil {
+		if cause != nil {
 			tx.Rollback(context.Background())
 		} else {
 			tx.Commit(context.Background())
@@ -98,6 +98,28 @@ func (db *DataBaseConnection) ReserveMoneyFromBalance(cash *Credition) ([]byte, 
 
 	if err == nil {
 		res, _ = json.Marshal(fmt.Sprintf("reserve balance %v was credited", *cash))
+	}
+	return res, err
+}
+
+func (db *DataBaseConnection) TransferMoney(transfer *Transfer) ([]byte, error) {
+	var res []byte
+	tx, err := db.Pool.Begin(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	defer func(cause error) {
+		if cause != nil {
+			tx.Rollback(context.Background())
+		} else {
+			tx.Commit(context.Background())
+		}
+	}(err)
+	_, err = tx.Exec(context.Background(), "UPDATE users SET pennies=pennies+100, rubles=rubles-1 WHERE uuid=$1 AND pennies<$2 AND rubles>=1", transfer.UuidFrom, transfer.Pennies)
+	_, err = tx.Exec(context.Background(), "UPDATE users SET rubles=rubles-$1, pennies=pennies-$2 WHERE uuid=$3", transfer.Rubles, transfer.Pennies, transfer.UuidFrom)
+	_, err = tx.Exec(context.Background(), "UPDATE users SET rubles=rubles+$1, pennies=pennies+$2 WHERE uuid=$3", transfer.Rubles, transfer.Pennies, transfer.UuidTo)
+	if err == nil {
+		res, _ = json.Marshal(fmt.Sprintf("transfer between %v and %v has done", &transfer.UuidFrom, &transfer.UuidTo))
 	}
 	return res, err
 }

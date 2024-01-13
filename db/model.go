@@ -19,3 +19,10 @@ type Credition struct {
 	Rubles  int64  `json:"rub"`
 	Pennies int    `json:"pen"`
 }
+
+type Transfer struct {
+	UuidFrom string `json:"uuid_sender"`
+	UuidTo   string `json:"uuid_reciever"`
+	Rubles   int64  `json:"rub"`
+	Pennies  int    `json:"pen"`
+}

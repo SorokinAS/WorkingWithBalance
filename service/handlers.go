@@ -82,6 +82,21 @@ func Run() {
 		}
 	}).Methods(http.MethodPatch)
 
+	router.HandleFunc("/transfer", func(w http.ResponseWriter, r *http.Request) {
+		var transfer db.Transfer
+		err := json.NewDecoder(r.Body).Decode(&transfer)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+		}
+		res, err := dbConn.TransferMoney(&transfer)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		} else {
+			w.WriteHeader(http.StatusOK)
+			w.Write(res)
+		}
+	}).Methods(http.MethodPatch)
+
 	http.Handle("/", router)
 	log.Fatal(http.ListenAndServe(":"+os.Getenv("API_PORT"), nil))
 }
