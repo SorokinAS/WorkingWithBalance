@@ -37,7 +37,7 @@ func Run() {
 		}
 	}).Methods(http.MethodGet)
 
-	router.HandleFunc("/create-user", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/create/user", func(w http.ResponseWriter, r *http.Request) {
 		var user db.User
 		err := json.NewDecoder(r.Body).Decode(&user)
 		if err != nil {
@@ -52,7 +52,7 @@ func Run() {
 		}
 	}).Methods(http.MethodPost)
 
-	router.HandleFunc("/credited-balance", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/balance/up", func(w http.ResponseWriter, r *http.Request) {
 		var cash db.Credition
 		err := json.NewDecoder(r.Body).Decode(&cash)
 		if err != nil {
@@ -67,7 +67,7 @@ func Run() {
 		}
 	}).Methods(http.MethodPatch)
 
-	router.HandleFunc("/credited-balance/reserve", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/reserve/up", func(w http.ResponseWriter, r *http.Request) {
 		var cash db.Credition
 		err := json.NewDecoder(r.Body).Decode(&cash)
 		if err != nil {

@@ -12,7 +12,6 @@ import (
 )
 
 type DataBaseConnection struct {
-	// Dbconn *pgx.Conn
 	Pool *pgxpool.Pool
 }
 
