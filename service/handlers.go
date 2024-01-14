@@ -20,6 +20,7 @@ func Run() {
 		res, err := dbConn.GetUsers()
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
 		} else {
 			w.WriteHeader(http.StatusOK)
 			w.Write(res)
@@ -31,6 +32,7 @@ func Run() {
 		res, err := dbConn.GetUserById(mux.Vars(r)["id"])
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
 		} else {
 			w.WriteHeader(http.StatusOK)
 			w.Write(res)
@@ -46,6 +48,7 @@ func Run() {
 		res, err := dbConn.CreateUser(&user)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
 		} else {
 			w.WriteHeader(http.StatusOK)
 			w.Write(res)
@@ -61,6 +64,7 @@ func Run() {
 		res, err := dbConn.AddMoney(&cash)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
 		} else {
 			w.WriteHeader(http.StatusOK)
 			w.Write(res)
@@ -76,6 +80,7 @@ func Run() {
 		res, err := dbConn.ReserveMoneyFromBalance(&cash)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
 		} else {
 			w.WriteHeader(http.StatusOK)
 			w.Write(res)
@@ -91,6 +96,7 @@ func Run() {
 		res, err := dbConn.TransferMoney(&transfer)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
 		} else {
 			w.WriteHeader(http.StatusOK)
 			w.Write(res)

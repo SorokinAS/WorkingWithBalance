@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -73,11 +74,24 @@ func (db *DataBaseConnection) CreateUser(user *User) ([]byte, error) {
 }
 
 func (db *DataBaseConnection) AddMoney(cash *Credition) ([]byte, error) {
-	_, err := db.Pool.Exec(context.Background(), "UPDATE users SET rubles=rubles+$1, pennies=pennies+$2 WHERE uid=$3", cash.Rubles, cash.Pennies, cash.Uid)
+	var res []byte
+	tx, err := db.Pool.Begin(context.Background())
 	if err != nil {
 		return nil, err
 	}
-	res, _ := json.Marshal(fmt.Sprintf("balanse %v was credited", *cash))
+	err = db.addMoney(tx, cash)
+	if err != nil {
+		tx.Rollback(context.Background())
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		tx.Commit(context.Background())
+		if err != nil {
+			return nil, err
+		}
+		res, _ = json.Marshal(fmt.Sprintf("add %d rub %d pen", cash.Rubles, cash.Pennies))
+	}
 	return res, nil
 }
 
@@ -98,7 +112,7 @@ func (db *DataBaseConnection) ReserveMoneyFromBalance(cash *Credition) ([]byte, 
 		if err != nil {
 			return nil, err
 		}
-		res, _ = json.Marshal(fmt.Sprintf("reserve balance %v was credited", *cash))
+		res, _ = json.Marshal(fmt.Sprintf("reserve balance %v was credited", cash))
 	}
 	return res, err
 }
@@ -120,9 +134,22 @@ func (db *DataBaseConnection) TransferMoney(transfer *Transfer) ([]byte, error) 
 		if err != nil {
 			return nil, err
 		}
-		res, _ = json.Marshal(fmt.Sprintf("transfer between %v and %v has done", &transfer.UidFrom, &transfer.UidTo))
+		res, _ = json.Marshal(fmt.Sprintf("transfer between %s and %s has done", transfer.UidFrom, transfer.UidTo))
 	}
 	return res, err
+}
+
+func (db *DataBaseConnection) addMoney(tx pgx.Tx, cash *Credition) error {
+	_, err := tx.Exec(context.Background(), "UPDATE users SET rubles=rubles+$1, pennies=pennies+$2 WHERE uid=$3", cash.Rubles, cash.Pennies, cash.Uid)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(context.Background(), "INSERT INTO operations VALUES ($1, $2, $3, $4)",
+		time.Now().Format(time.DateTime), cash.Uid, cash.Uid, fmt.Sprintf("add %d rub %d pen", cash.Rubles, cash.Pennies))
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (db *DataBaseConnection) reserveMoneyFromBalance(tx pgx.Tx, cash *Credition) error {
@@ -142,6 +169,11 @@ func (db *DataBaseConnection) reserveMoneyFromBalance(tx pgx.Tx, cash *Credition
 	}
 	if avialable {
 		return errors.New("error: there aren't enough money to make the transaction")
+	}
+	_, err = tx.Exec(context.Background(), "INSERT INTO operations VALUES ($1, $2, $3, $4)",
+		time.Now().Format(time.DateTime), cash.Uid, cash.Uid, fmt.Sprintf("reserve %d rub %d pen", cash.Rubles, cash.Pennies))
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -164,6 +196,11 @@ func (db *DataBaseConnection) transferMoney(tx pgx.Tx, transfer *Transfer) error
 		return errors.New("error: there aren't enough money to make the transaction")
 	}
 	_, err = tx.Exec(context.Background(), "UPDATE users SET rubles=rubles+$1, pennies=pennies+$2 WHERE uid=$3", transfer.Rubles, transfer.Pennies, transfer.UidTo)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(context.Background(), "INSERT INTO operations VALUES ($1, $2, $3, $4)",
+		time.Now().Format(time.DateTime), transfer.UidFrom, transfer.UidTo, fmt.Sprintf("transfer %d rub %d pen", transfer.Rubles, transfer.Pennies))
 	if err != nil {
 		return err
 	}
