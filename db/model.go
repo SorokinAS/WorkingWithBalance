@@ -1,7 +1,7 @@
 package db
 
 type User struct {
-	Uuid   string `json:"uuid"`
+	Uid    string `json:"uid"`
 	Name   string `json:"name"`
 	Rub    int64  `json:"rubles"`
 	Pen    int    `json:"pennies"`
@@ -10,19 +10,19 @@ type User struct {
 }
 
 type UserInfo struct {
-	Uuid string `json:"uuid"`
+	Uid  string `json:"uid"`
 	Name string `json:"name"`
 }
 
 type Credition struct {
-	Uuid    string `json:"uuid"`
+	Uid     string `json:"uid"`
 	Rubles  int64  `json:"rub"`
 	Pennies int    `json:"pen"`
 }
 
 type Transfer struct {
-	UuidFrom string `json:"uuid_sender"`
-	UuidTo   string `json:"uuid_reciever"`
-	Rubles   int64  `json:"rub"`
-	Pennies  int    `json:"pen"`
+	UidFrom string `json:"uid_sender"`
+	UidTo   string `json:"uid_reciever"`
+	Rubles  int64  `json:"rub"`
+	Pennies int    `json:"pen"`
 }
