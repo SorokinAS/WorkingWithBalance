@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -17,30 +18,39 @@ func Run() {
 	log.Println("Service is running")
 
 	router.HandleFunc("/get/users", func(w http.ResponseWriter, r *http.Request) {
+		var jsonresp []byte
 		res, err := dbConn.GetUsers()
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			resp := map[string]string{"error": err.Error()}
+			jsonresp, _ = json.Marshal(resp)
 		} else {
 			w.WriteHeader(http.StatusOK)
-			w.Write(res)
+			resp := map[string][]db.UserInfo{"users": res}
+			jsonresp, _ = json.Marshal(resp)
 		}
-
+		w.Write(jsonresp)
 	}).Methods(http.MethodGet)
 
 	router.HandleFunc("/get/user/{id}", func(w http.ResponseWriter, r *http.Request) {
+		var jsonresp []byte
 		res, err := dbConn.GetUserById(mux.Vars(r)["id"])
+		w.Header().Set("Content-Type", "application/json")
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			resp := map[string]string{"error": err.Error()}
+			jsonresp, _ = json.Marshal(resp)
 		} else {
 			w.WriteHeader(http.StatusOK)
-			w.Write(res)
+			resp := map[string]db.User{"user": res}
+			jsonresp, _ = json.Marshal(resp)
 		}
+		w.Write(jsonresp)
 	}).Methods(http.MethodGet)
 
 	router.HandleFunc("/create/user", func(w http.ResponseWriter, r *http.Request) {
 		var user db.User
+		var jsonresp []byte
 		err := json.NewDecoder(r.Body).Decode(&user)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -48,59 +58,79 @@ func Run() {
 		res, err := dbConn.CreateUser(&user)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			resp := map[string]string{"error": err.Error()}
+			jsonresp, _ = json.Marshal(resp)
 		} else {
 			w.WriteHeader(http.StatusOK)
-			w.Write(res)
+			resp := map[string]db.UserInfo{"created_user": res}
+			jsonresp, _ = json.Marshal(resp)
 		}
+		w.Write(jsonresp)
 	}).Methods(http.MethodPost)
 
 	router.HandleFunc("/balance/up", func(w http.ResponseWriter, r *http.Request) {
 		var cash db.Credition
+		var jsonresp []byte
 		err := json.NewDecoder(r.Body).Decode(&cash)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
+			return
 		}
-		res, err := dbConn.AddMoney(&cash)
+		err = dbConn.AddMoney(&cash)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			resp := map[string]string{"error": err.Error()}
+			jsonresp, _ = json.Marshal(resp)
+
 		} else {
 			w.WriteHeader(http.StatusOK)
-			w.Write(res)
+			resp := map[string]string{"message": fmt.Sprintf("add %d rub %d pen", cash.Rubles, cash.Pennies)}
+			jsonresp, _ = json.Marshal(resp)
 		}
+		w.Write(jsonresp)
 	}).Methods(http.MethodPatch)
 
 	router.HandleFunc("/reserve/up", func(w http.ResponseWriter, r *http.Request) {
 		var cash db.Credition
+		var jsonresp []byte
 		err := json.NewDecoder(r.Body).Decode(&cash)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
+			return
 		}
-		res, err := dbConn.ReserveMoneyFromBalance(&cash)
+		err = dbConn.ReserveMoneyFromBalance(&cash)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			resp := map[string]string{"error": err.Error()}
+			jsonresp, _ = json.Marshal(resp)
+			w.Write(jsonresp)
 		} else {
 			w.WriteHeader(http.StatusOK)
-			w.Write(res)
+			resp := map[string]string{"message": fmt.Sprintf("add %d rub %d pen transfered from the balance", cash.Rubles, cash.Pennies)}
+			jsonresp, _ = json.Marshal(resp)
 		}
+		w.Write(jsonresp)
 	}).Methods(http.MethodPatch)
 
 	router.HandleFunc("/transfer", func(w http.ResponseWriter, r *http.Request) {
 		var transfer db.Transfer
+		var jsonresp []byte
 		err := json.NewDecoder(r.Body).Decode(&transfer)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
+			return
 		}
-		res, err := dbConn.TransferMoney(&transfer)
+		err = dbConn.TransferMoney(&transfer)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			resp := map[string]string{"error": err.Error()}
+			jsonresp, _ = json.Marshal(resp)
 		} else {
 			w.WriteHeader(http.StatusOK)
-			w.Write(res)
+			resp := map[string]string{"message": fmt.Sprintf("add %d rub %d pen transfered from the balance", transfer.Rubles, transfer.Pennies)}
+			jsonresp, _ = json.Marshal(resp)
 		}
+		w.Write(jsonresp)
 	}).Methods(http.MethodPatch)
 
 	http.Handle("/", router)

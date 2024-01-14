@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -26,7 +25,7 @@ func NewDbConnection() *DataBaseConnection {
 	return &DataBaseConnection{pool}
 }
 
-func (db *DataBaseConnection) GetUsers() ([]byte, error) {
+func (db *DataBaseConnection) GetUsers() ([]UserInfo, error) {
 	users := make([]UserInfo, 0)
 	rows, err := db.Pool.Query(context.Background(), "SELECT uid, name FROM users")
 	if err != nil {
@@ -39,104 +38,89 @@ func (db *DataBaseConnection) GetUsers() ([]byte, error) {
 		}
 		users = append(users, man)
 	}
-	res, err := json.Marshal(users)
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
+	return users, nil
 }
 
-func (db *DataBaseConnection) GetUserById(uid string) ([]byte, error) {
+func (db *DataBaseConnection) GetUserById(uid string) (User, error) {
 	var user User
-	row := db.Pool.QueryRow(context.Background(), "SELECT name, rubles, pennies, rubles_res, pennies_res FROM users WHERE uuid=$1", uid)
+	row := db.Pool.QueryRow(context.Background(), "SELECT name, rubles, pennies, rubles_res, pennies_res FROM users WHERE uid=$1", uid)
 	if err := row.Scan(&user.Name, &user.Rub, &user.Pen, &user.RubRes, &user.PenRes); err != nil {
-		return nil, err
+		return User{}, err
 	}
 	user.Uid = uid
-	res, err := json.Marshal(user)
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
+	return user, nil
 }
 
-func (db *DataBaseConnection) CreateUser(user *User) ([]byte, error) {
+func (db *DataBaseConnection) CreateUser(user *User) (UserInfo, error) {
 	user.Uid = uuid.New().String()
 	_, err := db.Pool.Exec(context.Background(), "INSERT INTO users VALUES ($1, $2, $3, $4)", user.Uid, user.Name, user.Rub, user.Pen)
 	if err != nil {
-		return nil, err
+		return UserInfo{}, err
 	}
-	res, _ := json.Marshal(UserInfo{
+	return UserInfo{
 		Uid:  user.Uid,
 		Name: user.Name,
-	})
-	return res, nil
+	}, nil
 }
 
-func (db *DataBaseConnection) AddMoney(cash *Credition) ([]byte, error) {
-	var res []byte
+func (db *DataBaseConnection) AddMoney(cash *Credition) error {
 	tx, err := db.Pool.Begin(context.Background())
 	if err != nil {
-		return nil, err
+		return err
 	}
 	err = db.addMoney(tx, cash)
 	if err != nil {
 		tx.Rollback(context.Background())
 		if err != nil {
-			return nil, err
+			return err
 		}
 	} else {
 		tx.Commit(context.Background())
 		if err != nil {
-			return nil, err
+			return err
 		}
-		res, _ = json.Marshal(fmt.Sprintf("add %d rub %d pen", cash.Rubles, cash.Pennies))
 	}
-	return res, nil
+	return nil
 }
 
-func (db *DataBaseConnection) ReserveMoneyFromBalance(cash *Credition) ([]byte, error) {
-	var res []byte
+func (db *DataBaseConnection) ReserveMoneyFromBalance(cash *Credition) error {
 	tx, err := db.Pool.Begin(context.Background())
 	if err != nil {
-		return nil, err
+		return err
 	}
 	err = db.reserveMoneyFromBalance(tx, cash)
 	if err != nil {
 		tx.Rollback(context.Background())
 		if err != nil {
-			return nil, err
+			return err
 		}
 	} else {
 		tx.Commit(context.Background())
 		if err != nil {
-			return nil, err
+			return err
 		}
-		res, _ = json.Marshal(fmt.Sprintf("reserve balance %v was credited", cash))
 	}
-	return res, err
+	return err
 }
 
-func (db *DataBaseConnection) TransferMoney(transfer *Transfer) ([]byte, error) {
-	var res []byte
+func (db *DataBaseConnection) TransferMoney(transfer *Transfer) error {
 	tx, err := db.Pool.Begin(context.Background())
 	if err != nil {
-		return nil, err
+		return err
 	}
 	err = db.transferMoney(tx, transfer)
 	if err != nil {
 		tx.Rollback(context.Background())
 		if err != nil {
-			return nil, err
+			return err
 		}
 	} else {
 		tx.Commit(context.Background())
 		if err != nil {
-			return nil, err
+			return err
 		}
-		res, _ = json.Marshal(fmt.Sprintf("transfer between %s and %s has done", transfer.UidFrom, transfer.UidTo))
 	}
-	return res, err
+	return err
 }
 
 func (db *DataBaseConnection) addMoney(tx pgx.Tx, cash *Credition) error {
