@@ -26,3 +26,8 @@ type Transfer struct {
 	Rubles  int64  `json:"rub"`
 	Pennies int    `json:"pen"`
 }
+
+type Buyer struct {
+	BuyerUid    string   `json:"uid_buyer"`
+	ServicesUid []string `json:"uid_services"`
+}

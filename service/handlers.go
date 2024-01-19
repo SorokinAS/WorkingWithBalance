@@ -90,28 +90,6 @@ func Run() {
 		w.Write(jsonresp)
 	}).Methods(http.MethodPatch)
 
-	router.HandleFunc("/reserve/up", func(w http.ResponseWriter, r *http.Request) {
-		var cash db.Credition
-		var jsonresp []byte
-		err := json.NewDecoder(r.Body).Decode(&cash)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		err = dbConn.ReserveMoneyFromBalance(&cash)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			resp := map[string]string{"error": err.Error()}
-			jsonresp, _ = json.Marshal(resp)
-			w.Write(jsonresp)
-		} else {
-			w.WriteHeader(http.StatusOK)
-			resp := map[string]string{"message": fmt.Sprintf("add %d rub %d pen transfered from the balance", cash.Rubles, cash.Pennies)}
-			jsonresp, _ = json.Marshal(resp)
-		}
-		w.Write(jsonresp)
-	}).Methods(http.MethodPatch)
-
 	router.HandleFunc("/transfer", func(w http.ResponseWriter, r *http.Request) {
 		var transfer db.Transfer
 		var jsonresp []byte
@@ -132,6 +110,27 @@ func Run() {
 		}
 		w.Write(jsonresp)
 	}).Methods(http.MethodPatch)
+
+	router.HandleFunc("/buy", func(w http.ResponseWriter, r *http.Request) {
+		var buyer db.Buyer
+		var jsonresp []byte
+		err := json.NewDecoder(r.Body).Decode(&buyer)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		err = db.NewDbConnection().BuyService(&buyer)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			resp := map[string]string{"error": err.Error()}
+			jsonresp, _ = json.Marshal(resp)
+		} else {
+			w.WriteHeader(http.StatusOK)
+			resp := map[string]string{"message": fmt.Sprintf("successful purchase %v", buyer.ServicesUid)}
+			jsonresp, _ = json.Marshal(resp)
+		}
+		w.Write(jsonresp)
+	}).Methods(http.MethodPatch, http.MethodPost)
 
 	http.Handle("/", router)
 	log.Fatal(http.ListenAndServe(":"+os.Getenv("API_PORT"), nil))

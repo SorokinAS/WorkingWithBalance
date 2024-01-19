@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -43,7 +42,7 @@ func (db *DataBaseConnection) GetUsers() ([]UserInfo, error) {
 
 func (db *DataBaseConnection) GetUserById(uid string) (User, error) {
 	var user User
-	row := db.Pool.QueryRow(context.Background(), "SELECT name, rubles, pennies, rubles_res, pennies_res FROM users WHERE uid=$1", uid)
+	row := db.Pool.QueryRow(context.Background(), "SELECT name, rub, pen, rub_res, pen_res FROM users WHERE uid=$1", uid)
 	if err := row.Scan(&user.Name, &user.Rub, &user.Pen, &user.RubRes, &user.PenRes); err != nil {
 		return User{}, err
 	}
@@ -83,26 +82,6 @@ func (db *DataBaseConnection) AddMoney(cash *Credition) error {
 	return nil
 }
 
-func (db *DataBaseConnection) ReserveMoneyFromBalance(cash *Credition) error {
-	tx, err := db.Pool.Begin(context.Background())
-	if err != nil {
-		return err
-	}
-	err = db.reserveMoneyFromBalance(tx, cash)
-	if err != nil {
-		tx.Rollback(context.Background())
-		if err != nil {
-			return err
-		}
-	} else {
-		tx.Commit(context.Background())
-		if err != nil {
-			return err
-		}
-	}
-	return err
-}
-
 func (db *DataBaseConnection) TransferMoney(transfer *Transfer) error {
 	tx, err := db.Pool.Begin(context.Background())
 	if err != nil {
@@ -123,39 +102,33 @@ func (db *DataBaseConnection) TransferMoney(transfer *Transfer) error {
 	return err
 }
 
-func (db *DataBaseConnection) addMoney(tx pgx.Tx, cash *Credition) error {
-	_, err := tx.Exec(context.Background(), "UPDATE users SET rubles=rubles+$1, pennies=pennies+$2 WHERE uid=$3", cash.Rubles, cash.Pennies, cash.Uid)
+func (db *DataBaseConnection) BuyService(buyer *Buyer) error {
+	tx, err := db.Pool.Begin(context.Background())
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(context.Background(), "INSERT INTO operations VALUES ($1, $2, $3, $4)",
-		time.Now().Format(time.DateTime), cash.Uid, cash.Uid, fmt.Sprintf("add %d rub %d pen", cash.Rubles, cash.Pennies))
+	err = db.buyService(tx, buyer)
 	if err != nil {
-		return err
+		tx.Rollback(context.Background())
+		if err != nil {
+			return err
+		}
+	} else {
+		tx.Commit(context.Background())
+		if err != nil {
+			return err
+		}
 	}
-	return nil
+	return err
 }
 
-func (db *DataBaseConnection) reserveMoneyFromBalance(tx pgx.Tx, cash *Credition) error {
-	var avialable bool
-	_, err := tx.Exec(context.Background(), "UPDATE users SET pennies=pennies+100, rubles=rubles-1 WHERE uid=$1 AND pennies<$2 AND rubles>=1", cash.Uid, cash.Pennies)
+func (db *DataBaseConnection) addMoney(tx pgx.Tx, cash *Credition) error {
+	_, err := tx.Exec(context.Background(), "UPDATE users SET rub=rub+$1, pen=pen+$2 WHERE uid=$3", cash.Rubles, cash.Pennies, cash.Uid)
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(context.Background(), "UPDATE users SET rubles=rubles-$1, pennies=pennies-$2, rubles_res=rubles_res+$1, pennies_res=pennies_res+$2 WHERE uid=$3 AND rubles>=$1 AND pennies>=$2",
-		cash.Rubles, cash.Pennies, cash.Uid)
-	if err != nil {
-		return err
-	}
-	row := tx.QueryRow(context.Background(), "SELECT (rubles<0 OR pennies<0) FROM users WHERE uid=$1", cash.Uid)
-	if err = row.Scan(&avialable); err != nil {
-		return err
-	}
-	if avialable {
-		return errors.New("error: there aren't enough money to make the transaction")
-	}
-	_, err = tx.Exec(context.Background(), "INSERT INTO operations VALUES ($1, $2, $3, $4)",
-		time.Now().Format(time.DateTime), cash.Uid, cash.Uid, fmt.Sprintf("reserve %d rub %d pen", cash.Rubles, cash.Pennies))
+	_, err = tx.Exec(context.Background(), "INSERT INTO operations VALUES ($1, $2, $3, $4, $5, $6)",
+		time.Now().Format(time.DateTime), cash.Uid, cash.Uid, "add", cash.Rubles, cash.Pennies)
 	if err != nil {
 		return err
 	}
@@ -164,27 +137,63 @@ func (db *DataBaseConnection) reserveMoneyFromBalance(tx pgx.Tx, cash *Credition
 
 func (db *DataBaseConnection) transferMoney(tx pgx.Tx, transfer *Transfer) error {
 	var avialable bool
-	_, err := tx.Exec(context.Background(), "UPDATE users SET pennies=pennies+100, rubles=rubles-1 WHERE uid=$1 AND pennies<$2 AND rubles>=1", transfer.UidFrom, transfer.Pennies)
+	_, err := tx.Exec(context.Background(), "UPDATE users SET pen=pen+100, rub=rub-1 WHERE uid=$1 AND pen<$2 AND rub>=1", transfer.UidFrom, transfer.Pennies)
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(context.Background(), "UPDATE users SET rubles=rubles-$1, pennies=pennies-$2 WHERE uid=$3", transfer.Rubles, transfer.Pennies, transfer.UidFrom)
+	_, err = tx.Exec(context.Background(), "UPDATE users SET rub=rub-$1, pen=pen-$2 WHERE uid=$3", transfer.Rubles, transfer.Pennies, transfer.UidFrom)
 	if err != nil {
 		return err
 	}
-	row := tx.QueryRow(context.Background(), "SELECT (rubles<0 OR pennies<0) FROM users WHERE uid=$1", transfer.UidFrom)
+	row := tx.QueryRow(context.Background(), "SELECT (rub<0 OR pen<0) FROM users WHERE uid=$1", transfer.UidFrom)
 	if err = row.Scan(&avialable); err != nil {
 		return err
 	}
 	if avialable {
 		return errors.New("error: there aren't enough money to make the transaction")
 	}
-	_, err = tx.Exec(context.Background(), "UPDATE users SET rubles=rubles+$1, pennies=pennies+$2 WHERE uid=$3", transfer.Rubles, transfer.Pennies, transfer.UidTo)
+	_, err = tx.Exec(context.Background(), "UPDATE users SET rub=rub+$1, pen=pen+$2 WHERE uid=$3", transfer.Rubles, transfer.Pennies, transfer.UidTo)
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(context.Background(), "INSERT INTO operations VALUES ($1, $2, $3, $4)",
-		time.Now().Format(time.DateTime), transfer.UidFrom, transfer.UidTo, fmt.Sprintf("transfer %d rub %d pen", transfer.Rubles, transfer.Pennies))
+	_, err = tx.Exec(context.Background(), "INSERT INTO operations VALUES ($1, $2, $3, $4, $5, $6)",
+		time.Now().Format(time.DateTime), transfer.UidFrom, transfer.UidTo, "transfer", transfer.Rubles, transfer.Pennies)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (db *DataBaseConnection) buyService(tx pgx.Tx, buyer *Buyer) error {
+	var rub int64
+	var pen int
+
+	row := db.Pool.QueryRow(context.Background(), "SELECT SUM(rub), SUM(pen) FROM services WHERE service_uid IN ($1)", buyer.ServicesUid)
+	if err := row.Scan(&rub, &pen); err != nil {
+		return err
+	}
+	_, err := tx.Exec(context.Background(), "UPDATE users SET pen=pen+100, rub=rub-1 WHERE uid=$1 AND pen<$2 AND rub>=1", buyer.BuyerUid, pen)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(context.Background(), "UPDATE users SET rub=rub-$1, pen=pen-$2, rub_res=rub_res+$1, pen_res=pen_res+$2 WHERE uid=$3 AND rub>=$1 AND pen>=$2",
+		rub, pen, buyer.BuyerUid)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(context.Background(), "UPDATE users SET rub_res=rub_res-$1, pen_res=pen_res-$2 WHERE uid=$3 AND rub>=$1 AND pen>=$2",
+		rub, pen, buyer.BuyerUid)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(context.Background(), "UPDATE organizations SET rub=rub+$1, pen=pen+$2 WHERE org_uid=(SELECT org_uid FROM services WHERE service_uid IN ($3) GROUP BY org_uid)",
+		rub, pen, buyer.ServicesUid)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(context.Background(),
+		"INSERT INTO operations VALUES ($1, $2, $3, $4, $5, $6), ($1, $2, (SELECT org_uid FROM services WHERE service_uid IN ($7) GROUP BY org_uid), $8, $5, $6)",
+		time.Now().Format(time.DateTime), buyer.BuyerUid, buyer.BuyerUid, "reserve", rub, pen, buyer.ServicesUid, "buy")
 	if err != nil {
 		return err
 	}
