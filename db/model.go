@@ -3,10 +3,10 @@ package db
 type User struct {
 	Uid    string `json:"uid"`
 	Name   string `json:"name"`
-	Rub    int64  `json:"rubles"`
-	Pen    int    `json:"pennies"`
-	RubRes int64  `json:"resRubles"`
-	PenRes int    `json:"resPennies"`
+	Rub    int64  `json:"rub"`
+	Pen    int    `json:"pen"`
+	RubRes int64  `json:"res_rub"`
+	PenRes int    `json:"res_pen"`
 }
 
 type UserInfo struct {

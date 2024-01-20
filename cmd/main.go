@@ -2,10 +2,10 @@ package main
 
 import (
 	"postgres-test/config"
-	"postgres-test/service"
+	"postgres-test/handler"
 )
 
 func main() {
 	config.GetConfig()
-	service.Run()
+	handler.Run()
 }

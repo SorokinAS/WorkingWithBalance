@@ -1,4 +1,4 @@
-package service
+package handler
 
 import (
 	"encoding/json"
@@ -17,7 +17,7 @@ func Run() {
 	dbConn := db.NewDbConnection()
 	log.Println("Service is running")
 
-	router.HandleFunc("/get/users", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/users", func(w http.ResponseWriter, r *http.Request) {
 		var jsonresp []byte
 		res, err := dbConn.GetUsers()
 		if err != nil {
@@ -26,15 +26,14 @@ func Run() {
 			jsonresp, _ = json.Marshal(resp)
 		} else {
 			w.WriteHeader(http.StatusOK)
-			resp := map[string][]db.UserInfo{"users": res}
-			jsonresp, _ = json.Marshal(resp)
+			jsonresp, _ = json.Marshal(res)
 		}
 		w.Write(jsonresp)
 	}).Methods(http.MethodGet)
 
-	router.HandleFunc("/get/user/{id}", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/user/{uuid}", func(w http.ResponseWriter, r *http.Request) {
 		var jsonresp []byte
-		res, err := dbConn.GetUserById(mux.Vars(r)["id"])
+		res, err := dbConn.GetUserById(mux.Vars(r)["uuid"])
 		w.Header().Set("Content-Type", "application/json")
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -42,13 +41,12 @@ func Run() {
 			jsonresp, _ = json.Marshal(resp)
 		} else {
 			w.WriteHeader(http.StatusOK)
-			resp := map[string]db.User{"user": res}
-			jsonresp, _ = json.Marshal(resp)
+			jsonresp, _ = json.Marshal(res)
 		}
 		w.Write(jsonresp)
 	}).Methods(http.MethodGet)
 
-	router.HandleFunc("/create/user", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/user", func(w http.ResponseWriter, r *http.Request) {
 		var user db.User
 		var jsonresp []byte
 		err := json.NewDecoder(r.Body).Decode(&user)
@@ -68,7 +66,7 @@ func Run() {
 		w.Write(jsonresp)
 	}).Methods(http.MethodPost)
 
-	router.HandleFunc("/balance/up", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/addition", func(w http.ResponseWriter, r *http.Request) {
 		var cash db.Credition
 		var jsonresp []byte
 		err := json.NewDecoder(r.Body).Decode(&cash)
@@ -130,7 +128,7 @@ func Run() {
 			jsonresp, _ = json.Marshal(resp)
 		}
 		w.Write(jsonresp)
-	}).Methods(http.MethodPatch, http.MethodPost)
+	}).Methods(http.MethodPatch)
 
 	http.Handle("/", router)
 	log.Fatal(http.ListenAndServe(":"+os.Getenv("API_PORT"), nil))
